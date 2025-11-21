@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WhatsApp-Style Chat – Group Chat (Add People + Invite)</title>
+
+<style>
+:root{--wa-green:#00a884;--wa-dark:#111b21;--wa-sidebar:#202c33;--wa-chat-bg:#efeae2;--wa-me:#d9fdd3;--wa-them:#ffffff;--text-light:#ffffff}
+body{margin:0;background:#0b141a;font-family:Segoe UI, sans-serif;height:100vh;display:flex;align-items:center;justify-content:center}
+.app{width:95%;height:95vh;background:#0b141a;display:flex;overflow:hidden;border-radius:10px;box-shadow:0 0 30px rgba(0,0,0,0.4)}
+.sidebar{width:330px;background:var(--wa-sidebar);color:white;display:flex;flex-direction:column}
+.sidebar-header{padding:16px;background:var(--wa-dark);font-size:20px;font-weight:600}
+.contact-list{flex:1;overflow-y:auto}
+.contact{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04)}
+.contact img{width:48px;height:48px;border-radius:50%}
+.contact:hover{background:rgba(255,255,255,0.08)}
+.chat{flex:1;display:flex;flex-direction:column;background-image:repeating-linear-gradient(45deg,#ff66cc 0 10px,#ffcc00 10px 20px,#66ccff 20px 30px)}
+.chat-header{background:var(--wa-dark);color:white;padding:14px;display:flex;align-items:center;gap:12px}
+.chat-header img{width:45px;height:45px;border-radius:50%}
+.messages{flex:1;overflow-y:auto;padding:20px}
+.msg{max-width:70%;padding:10px 14px;margin-bottom:12px;border-radius:8px;font-size:15px;position:relative}
+.me{background:var(--wa-me);margin-left:auto}
+.them{background:white;margin-right:auto}
+.sender-name{font-size:12px;font-weight:700;margin-bottom:4px}
+.time{font-size:11px;opacity:0.6;text-align:right;margin-top:4px}
+.input-bar{display:flex;padding:12px;background:white;gap:10px}
+.input-bar input{flex:1;padding:12px;border-radius:20px;border:1px solid #ccc}
+.send-btn{padding:10px 18px;background:var(--wa-green);color:white;border:none;border-radius:20px;cursor:pointer;font-weight:700}
+#emojiPicker{position:absolute;bottom:70px;right:20px;background:white;padding:10px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,0.3);display:none;flex-wrap:wrap;max-width:200px}
+#emojiPicker span{cursor:pointer;font-size:22px}
+#loginScreen{position:fixed;inset:0;background:#0b141a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:999999;color:white;font-size:22px}
+#loginScreen input{padding:12px 16px;border-radius:8px;border:none;font-size:18px;width:260px}
+#loginBtn{padding:12px 20px;background:#00a884;color:white;border:none;border-radius:8px;font-size:18px;cursor:pointer}
+#splash{position:fixed;inset:0;background:black;display:flex;align-items:center;justify-content:center;z-index:99999;animation:fadeOut 1.5s ease 2s forwards}
+.splash-M{font-size:150px;font-weight:900;color:#e50914;animation:zoomIn 1.3s ease}
+@keyframes zoomIn{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}@keyframes fadeOut{to{opacity:0;visibility:hidden;}}
+/* modals */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(3px);align-items:center;justify-content:center;z-index:9999999}
+.card{background:white;padding:18px;border-radius:12px;width:360px;display:flex;flex-direction:column;gap:10px}
+.card img{width:84px;height:84px;border-radius:50%;margin:auto}
+.small-muted{font-size:12px;color:#666}
+@media (max-width: 768px) {
+  .app{flex-direction:column;height:100vh;width:100%;border-radius:0;}
+  .sidebar{width:100%;height:35%;}
+  .chat{height:65%;}
+  .sidebar-header{font-size:18px;padding:12px;}
+  .contact img{width:40px;height:40px;}
+  .chat-header img{width:40px;height:40px;}
+  .messages{padding:12px;}
+  .msg{max-width:85%;font-size:14px;}
+  .input-bar input{padding:10px;font-size:14px;}
+  #emojiPicker{right:10px;bottom:90px;max-width:160px;}
+}
+</style>
+</head>
+
+<body>
+<div id="splash"><div class="splash-M">M</div></div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div>Enter Username</div>
+  <input id="loginName" placeholder="Your name" />
+
+  <div>Upload Profile Picture</div>
+  <input type="file" id="loginPfpFile" accept="image/*" />
+
+  <button id="loginBtn">Login</button>
+  <div class="small-muted">You can also be auto-registered by an invite link: <code>?join=Name</code></div>
+</div>
+
+<!-- APP -->
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      Chats
+      <button id="profileBtn" style="float:right;background:#007a6e;border:none;color:white;padding:4px 10px;margin-right:6px;border-radius:6px;cursor:pointer;font-size:14px;">Profile</button>
+      <button id="addPersonBtn" style="float:right;background:#00a884;border:none;color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;margin-right:6px;">+</button>
+    </div>
+    <div class="contact-list" id="contactList"></div>
+  </div>
+
+  <div class="chat">
+    <div class="chat-header">
+      <img id="chatPfp" src="https://i.imgur.com/7k3Hj.png">
+      <div id="chatName">Select a contact</div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="input-bar">
+      <button id="emojiBtn" style="font-size:22px;background:white;border:1px solid #ccc;border-radius:10px;cursor:pointer;">😊</button>
+      <input id="msgInput" placeholder="Type a message" />
+      <button class="send-btn" id="sendBtn">Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="emojiPicker"></div>
+
+<!-- ADD PERSON / INVITE MODAL -->
+<div id="addModal" class="modal">
+  <div class="card">
+    <h3 style="margin:0;text-align:center">Add Contact</h3>
+    <img id="addPreview" src="https://i.imgur.com/7k3Hj.png" alt="preview">
+    <input id="addName" placeholder="Full name" style="padding:10px;border-radius:8px;border:1px solid #ccc">
+    <input type="file" id="addPfpFile" accept="image/*">
+    <div style="display:flex;gap:8px;">
+      <button id="saveAdd" style="flex:1;padding:10px;background:#00a884;color:white;border:none;border-radius:8px;cursor:pointer">Save</button>
+      <button id="inviteBtn" style="flex:1;padding:10px;background:#007a6e;color:white;border:none;border-radius:8px;cursor:pointer">Create Invite Link</button>
+    </div>
+    <button id="closeAdd" style="padding:10px;background:#ccc;border:none;border-radius:8px;cursor:pointer">Cancel</button>
+    <div id="inviteArea" style="display:none;margin-top:8px;">
+      <div style="font-size:13px;color:#333;word-break:break-all">Invite link:</div>
+      <input id="inviteLink" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd;margin-top:6px">
+      <button id="copyInvite" style="margin-top:8px;padding:8px;background:#00a884;color:white;border:none;border-radius:6px;cursor:pointer">Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div id="profileModal" class="modal">
+  <div class="card">
+    <h2 style="margin:0;font-size:20px;text-align:center;">Edit Profile</h2>
+    <img id="profilePreview" src="https://i.imgur.com/7k3Hj.png" alt="pfp">
+    <input type="file" id="newProfilePic" accept="image/*">
+    <input id="newProfileName" placeholder="Enter new name" style="padding:10px;font-size:16px;border-radius:8px;border:1px solid #ccc;">
+    <button id="saveProfileBtn" style="padding:10px;background:#00a884;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">Save</button>
+    <button id="closeProfileBtn" style="padding:10px;background:#ccc;border:none;border-radius:8px;font-size:16px;cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
+<script>
+/* ------------------ AUTO-JOIN VIA LINK (name-only) ------------------ */
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const joinName = params.get('join');
+  if(joinName){
+    // store requested join so after login it opens
+    window.requestJoin = { name: joinName };
+  }
+})();
+
+/* ------------------ DATA ------------------ */
+let contacts=[];
+let current=null; let chatData={}; let username=null; let userPfp=null;
+
+/* ------------------ UTIL ------------------ */
+function timeNow(){ const d=new Date(); return d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'); }
+function hashCode(str){ let h=0; for(let i=0;i<str.length;i++){ h = (h<<5)-h + str.charCodeAt(i); h |= 0; } return Math.abs(h); }
+function pastelFor(name){ const h=hashCode(name); const hue = h % 360; return `hsl(${hue} 70% 85%)`; }
+
+/* ------------------ RENDER CONTACTS ------------------ */
+function renderContacts(){
+  const list=document.getElementById("contactList"); list.innerHTML="";
+  contacts.forEach(c=>{
+    const div=document.createElement("div"); div.className="contact";
+    div.innerHTML=`<img src="${c.pfp}"><div style="flex:1"><div style=\"font-weight:700\">${c.name}</div>${c.isGroup?'<div style="font-size:12px;opacity:0.7">Group • '+c.members.length+' members</div>':''}</div>`;
+    div.onclick=()=>openChat(c);
+    list.appendChild(div);
+  });
+}
+renderContacts();
+
+/* ------------------ OPEN CHAT ------------------ */
+function openChat(c){ current = c; document.getElementById("chatPfp").src = c.pfp; document.getElementById("chatName").textContent = c.name + (c.isGroup? ' (Group)':''); loadMessages(); }
+
+/* ------------------ LOAD / SHOW MESSAGES ------------------ */
+function loadMessages(){ const box=document.getElementById("messages"); box.innerHTML=""; const key = current.name; const msgs = chatData[key] || []; msgs.forEach(m => addMessageToUI(m,true)); }
+function addMessageToUI(m,prepend=false){ const box=document.getElementById("messages"); const div=document.createElement("div"); const isMe = !!m.me; div.className = 'msg ' + (isMe? 'me':'them'); let senderLabel = ''; if(current.isGroup){ const senderName = isMe ? (username || 'You') : (m.sender || 'Unknown'); senderLabel = `<div class="sender-name">${senderName}</div>`; } let bgStyle = ''; if(!isMe && m.sender){ bgStyle = `style="background:${pastelFor(m.sender)}"`; } div.innerHTML = `${senderLabel}<div ${bgStyle}>${m.text}</div><div class="time">${m.time}</div>`; box.appendChild(div); box.scrollTop = box.scrollHeight; }
+
+/* ------------------ SEND MESSAGE ------------------ */
+const input=document.getElementById("msgInput"); document.getElementById("sendBtn").onclick=sendMsg; input.onkeypress=e=>{ if(e.key==="Enter") sendMsg(); };
+function sendMsg(){ if(!current) return alert("Select a contact first."); const text=input.value.trim(); if(!text) return; const msg={text,me:true,time:timeNow()}; if(current.isGroup){ msg.sender = username || 'You'; } chatData[current.name]=chatData[current.name]||[]; chatData[current.name].push(msg); addMessageToUI(msg); input.value=""; if(current.isGroup){ setTimeout(()=>{ const members = current.members.filter(m=>m!==msg.sender); const replier = members[Math.floor(Math.random()*members.length)]; const reply = { text: sampleReply(), me:false, sender: replier, time: timeNow() }; chatData[current.name].push(reply); addMessageToUI(reply); },700); } else { setTimeout(()=>{ const reply = { text:"Seen ✔️", me:false, time:timeNow() }; chatData[current.name].push(reply); addMessageToUI(reply); },700); } }
+function sampleReply(){ const options=["Nice!","I agree","👍","Lol","On my way","Sounds good","Haha","Thanks!"]; return options[Math.floor(Math.random()*options.length)]; }
+
+/* ------------------ EMOJI PICKER ------------------ */
+const emojiList=["😀","😁","😂","🤣","😊","😍","😎","😡","😱","👍","👎","❤️","🔥","😴","🎉"]; const picker=document.getElementById("emojiPicker"); emojiList.forEach(e=>{ let s=document.createElement("span"); s.textContent=e; s.style.margin='6px'; s.onclick=()=>{ input.value+=e; picker.style.display="none"; }; picker.appendChild(s); }); document.getElementById("emojiBtn").onclick=()=>{ picker.style.display = picker.style.display==="flex"?"none":"flex"; };
+
+/* ------------------ LOGIN ------------------ */
+document.getElementById("loginBtn").onclick=()=>{ const name=document.getElementById("loginName").value.trim(); if(!name) return alert("Enter a name"); const file=document.getElementById("loginPfpFile").files[0]; if(file){ const reader=new FileReader(); reader.onload=()=>{ userPfp=reader.result; completeLogin(name); }; reader.readAsDataURL(file); } else { userPfp="https://i.imgur.com/7k3Hj.png"; completeLogin(name); } };
+function completeLogin(name){ username=name; localStorage.setItem("loggedUser",JSON.stringify({username,userPfp})); document.getElementById("loginScreen").style.display="none"; if(!contacts.find(c=>c.name===username)) contacts.push({name:username,pfp:userPfp}); renderContacts(); // auto-open join if requested
+  if(window.requestJoin && window.requestJoin.name){ const contact = contacts.find(c=>c.name===window.requestJoin.name); if(contact) openChat(contact); window.requestJoin = null; } }
+const saved=localStorage.getItem("loggedUser"); if(saved){ const s=JSON.parse(saved); username=s.username; userPfp=s.userPfp; document.getElementById("loginScreen").style.display="none"; if(!contacts.find(c=>c.name===username)) contacts.push({name:username,pfp:userPfp}); renderContacts(); }
+
+/* ------------------ ADD PERSON (modal + invite) ------------------ */
+const addModal=document.getElementById('addModal'); const addName=document.getElementById('addName'); const addPfpFile=document.getElementById('addPfpFile'); const addPreview=document.getElementById('addPreview'); const saveAdd=document.getElementById('saveAdd'); const closeAdd=document.getElementById('closeAdd'); const inviteBtn=document.getElementById('inviteBtn'); const inviteArea=document.getElementById('inviteArea'); const inviteLinkInput=document.getElementById('inviteLink'); const copyInvite=document.getElementById('copyInvite');
+
+document.getElementById('addPersonBtn').onclick = ()=>{ addName.value=''; addPreview.src='https://i.imgur.com/7k3Hj.png'; inviteArea.style.display='none'; addModal.style.display='flex'; };
+closeAdd.onclick = ()=> addModal.style.display='none';
+
+addPfpFile.onchange = ()=>{ const f = addPfpFile.files[0]; if(!f) return; const r=new FileReader(); r.onload= e=> addPreview.src = e.target.result; r.readAsDataURL(f); };
+
+saveAdd.onclick = ()=>{
+  const name = addName.value.trim(); if(!name) return alert('Enter a name'); const pfp = addPreview.src || 'https://i.imgur.com/7k3Hj.png'; if(!contacts.find(c=>c.name.toLowerCase()===name.toLowerCase())){ contacts.push({ name, pfp }); renderContacts(); } else { alert('Contact already exists'); }
+  addModal.style.display='none';
+};
+
+inviteBtn.onclick = ()=>{
+  const name = addName.value.trim(); if(!name) return alert('Enter a name to create invite');
+  // Option 1: name-only invite
+  const base = window.location.origin + window.location.pathname;
+  const link = base + '?join=' + encodeURIComponent(name);
+  inviteLinkInput.value = link; inviteArea.style.display='block';
+};
+
+copyInvite.onclick = ()=>{ inviteLinkInput.select(); inviteLinkInput.setSelectionRange(0,99999); try{ document.execCommand('copy'); alert('Invite link copied to clipboard'); }catch(e){ navigator.clipboard.writeText(inviteLinkInput.value).then(()=>alert('Copied'),()=>alert('Copy failed')) } };
+
+/* ------------------ PROFILE MODAL ------------------ */
+const profileModal=document.getElementById('profileModal'); document.getElementById('profileBtn').onclick = ()=>{ profileModal.style.display='flex'; document.getElementById('profilePreview').src = userPfp || 'https://i.imgur.com/7k3Hj.png'; document.getElementById('newProfileName').value = username || ''; };
+
+document.getElementById('closeProfileBtn').onclick = ()=> profileModal.style.display='none';
+
+document.getElementById('newProfilePic').onchange = function(){ const f=this.files[0]; if(!f) return; const r=new FileReader(); r.onload=e=>document.getElementById('profilePreview').src=e.target.result; r.readAsDataURL(f); };
+
+document.getElementById('saveProfileBtn').onclick = ()=>{
+  const newName = document.getElementById('newProfileName').value.trim(); const file = document.getElementById('newProfilePic').files[0]; if(newName) username=newName; function finishSave(){ localStorage.setItem('loggedUser', JSON.stringify({ username, userPfp })); const userEntry = contacts.find(c=>c.name===username || c.pfp===userPfp); if(userEntry){ userEntry.name = username; userEntry.pfp = userPfp; } renderContacts(); profileModal.style.display='none'; }
+  if(file){ const r=new FileReader(); r.onload=e=>{ userPfp = e.target.result; finishSave(); }; r.readAsDataURL(file); } else { userPfp = document.getElementById('profilePreview').src || userPfp; finishSave(); }
+};
+
+// helper: if an invite triggered auto-join after login
+if(window.requestJoin && !localStorage.getItem('loggedUser')){
+  // show login screen — user will be auto-opened after completing login (handled in completeLogin)
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+</script>
+</body>
+</html>
